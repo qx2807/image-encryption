@@ -50,47 +50,26 @@
         /* 针对展示区域的调整 */
         .canvas-container {
             width: 100%;
-            overflow: auto;
             background: #e9ecef;
             border-radius: 8px;
             text-align: center;
             padding: 10px;
             box-sizing: border-box;
-            position: relative; /* 为子元素绝对定位做准备 */
+            /* 移除了 overflow: auto 和 position: relative，不再限制高度 */
         }
         
-        /* canvas 和 img 叠加在一起 */
-        canvas {
+        /* 让 Canvas 和真正的 img 标签使用相同的自适应样式 */
+        canvas, #mobileImage {
             max-width: 100%;
             height: auto;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            margin: 0 auto; /* 保证居中 */
             background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="%23ccc"/><rect x="10" y="10" width="10" height="10" fill="%23ccc"/></svg>');
         }
         
-        /* 这张图片平时隐藏，生成结果后覆盖在canvas上方，专门用于给手机用户长按 */
+        /* 移动端长按图默认隐藏，不需要再绝对定位了 */
         #mobileImage {
-            display: none;
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            max-width: calc(100% - 20px);
-            height: auto;
-            z-index: 10; 
-            /* opacity: 0; 如果你想让它完全透明不可见但能长按，可以去掉注释，但为了直观，暂时不透明 */
-        }
-
-        .note {
-            font-size: 0.9em;
-            color: #7f8c8d;
-            margin-top: 10px;
-            line-height: 1.5;
-        }
-        .mobile-tip {
-            color: #e74c3c;
-            font-weight: bold;
-            display: none; /* 默认隐藏，有图片时显示 */
-            margin-bottom: 10px;
+            display: none; 
         }
     </style>
 </head>
