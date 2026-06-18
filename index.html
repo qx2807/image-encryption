@@ -65,12 +65,13 @@
             font-size: 0.9em;
             color: #7f8c8d;
             margin-top: 10px;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
 
-    <h1>图片像素级混淆加密工具</h1>
+    <h1>图片像素级混淆工具</h1>
 
     <div class="control-panel">
         <div class="row">
@@ -78,17 +79,18 @@
             <input type="file" id="imageUpload" accept="image/*">
         </div>
         <div class="row">
-            <label for="password"><strong>2. 密钥/密码:</strong></label>
-            <input type="text" id="password" placeholder="输入任意字符作为加密/解密密码">
+            <label for="password"><strong>2. 密钥设置 (可选):</strong></label>
+            <input type="text" id="password" placeholder="留空则使用默认混淆规则，输入密码则进行专属加密">
         </div>
         <div class="row">
-            <strong>3. 操作:</strong>
+            <strong>3. 执行操作:</strong>
             <button class="encrypt" onclick="processImage(true)">加密图片</button>
             <button class="decrypt" onclick="processImage(false)">解密图片</button>
             <button class="download" onclick="downloadImage()">下载结果图</button>
         </div>
         <div class="note">
-            * 提示：为保证零损耗，下载的加密图片将强制保存为 <strong>PNG</strong> 格式。请勿使用微信压缩发送或转换为JPG格式，否则将破坏像素结构导致无法解密。
+            * <strong>提示：</strong>为保证零损耗，下载的图片将强制保存为 <strong>PNG</strong> 格式。请勿使用微信压缩发送或转换为JPG格式，否则将破坏像素结构导致无法解密。<br>
+            * <strong>安全：</strong>如果不填密码，将使用固定的基础混淆规则（适用于防机器检测）；填写密码后，只有输入相同密码才能解密。
         </div>
     </div>
 
@@ -127,12 +129,12 @@
         for (let i = 0; i < str.length; i++) {
             let char = str.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
-            hash |= 0; // 转化为32位整数
+            hash |= 0; 
         }
-        return hash || 1; // 避免种子为0
+        return hash || 1; 
     }
 
-    // Mulberry32 伪随机数生成器 (PRNG)，保证相同的种子产生相同的随机序列
+    // Mulberry32 伪随机数生成器 (PRNG)
     function mulberry32(a) {
         return function() {
           var t = a += 0x6D2B79F5;
@@ -142,7 +144,7 @@
         }
     }
 
-    // 核心处理逻辑：isEncrypt 为 true 时加密，为 false 时解密
+    // 核心处理逻辑
     function processImage(isEncrypt) {
         if (!canvas.width || !canvas.height) {
             alert("请先上传图片！");
@@ -150,30 +152,25 @@
         }
         
         const password = document.getElementById('password').value;
-        if (!password) {
-            alert("请输入密钥/密码！");
-            return;
-        }
+
+        // 【核心修改点】判断密码框是否有值：有则哈希，无则使用 2807
+        const seed = password ? hashCode(password) : 2807;
+        const prng = mulberry32(seed);
 
         // 获取 Canvas 中的像素数据
         const width = canvas.width;
         const height = canvas.height;
         const imgData = ctx.getImageData(0, 0, width, height);
         const pixels = imgData.data;
-
-        // 生成基于密码的伪随机数生成器
-        const seed = hashCode(password);
-        const prng = mulberry32(seed);
-
         const totalPixels = width * height;
         
-        // 创建索引数组 [0, 1, 2, ..., totalPixels-1]
+        // 创建索引数组
         const indices = new Uint32Array(totalPixels);
         for (let i = 0; i < totalPixels; i++) {
             indices[i] = i;
         }
 
-        // 使用 Fisher-Yates 算法打乱索引（基于同一个密码，打乱的顺序永远是固定的）
+        // 使用 Fisher-Yates 算法打乱索引
         for (let i = totalPixels - 1; i > 0; i--) {
             let j = Math.floor(prng() * (i + 1));
             let temp = indices[i];
@@ -185,26 +182,26 @@
         const newPixels = new Uint8ClampedArray(pixels.length);
 
         if (isEncrypt) {
-            // 加密：将原图打乱索引指向的像素，放到新图的顺序位置上
+            // 加密
             for (let i = 0; i < totalPixels; i++) {
-                let srcIndex = indices[i] * 4; // 原像素位置
-                let dstIndex = i * 4;          // 新像素位置
+                let srcIndex = indices[i] * 4; 
+                let dstIndex = i * 4;          
                 
-                newPixels[dstIndex] = pixels[srcIndex];         // R
-                newPixels[dstIndex + 1] = pixels[srcIndex + 1]; // G
-                newPixels[dstIndex + 2] = pixels[srcIndex + 2]; // B
-                newPixels[dstIndex + 3] = pixels[srcIndex + 3]; // A
+                newPixels[dstIndex] = pixels[srcIndex];         
+                newPixels[dstIndex + 1] = pixels[srcIndex + 1]; 
+                newPixels[dstIndex + 2] = pixels[srcIndex + 2]; 
+                newPixels[dstIndex + 3] = pixels[srcIndex + 3]; 
             }
         } else {
-            // 解密：将当前乱序图的顺序位置的像素，放回原图打乱索引指向的位置上
+            // 解密
             for (let i = 0; i < totalPixels; i++) {
-                let srcIndex = i * 4;          // 当前像素位置
-                let dstIndex = indices[i] * 4; // 应该还原的位置
+                let srcIndex = i * 4;          
+                let dstIndex = indices[i] * 4; 
                 
-                newPixels[dstIndex] = pixels[srcIndex];         // R
-                newPixels[dstIndex + 1] = pixels[srcIndex + 1]; // G
-                newPixels[dstIndex + 2] = pixels[srcIndex + 2]; // B
-                newPixels[dstIndex + 3] = pixels[srcIndex + 3]; // A
+                newPixels[dstIndex] = pixels[srcIndex];         
+                newPixels[dstIndex + 1] = pixels[srcIndex + 1]; 
+                newPixels[dstIndex + 2] = pixels[srcIndex + 2]; 
+                newPixels[dstIndex + 3] = pixels[srcIndex + 3]; 
             }
         }
 
@@ -213,7 +210,7 @@
         ctx.putImageData(imgData, 0, 0);
     }
 
-    // 下载处理后的图片（强制保存为PNG以保证无损）
+    // 下载处理后的图片（强制保存为PNG）
     function downloadImage() {
         if (!canvas.width || !canvas.height) {
             alert("没有可下载的图片！");
@@ -221,7 +218,7 @@
         }
         const link = document.createElement('a');
         link.download = 'scrambled_image.png';
-        link.href = canvas.toDataURL('image/png'); // 核心：使用无损PNG格式
+        link.href = canvas.toDataURL('image/png'); 
         link.click();
     }
 </script>
